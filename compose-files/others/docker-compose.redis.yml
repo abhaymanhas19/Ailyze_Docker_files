@@ -1,0 +1,43 @@
+version: "3.8"
+services:
+  redis:
+    container_name: "redis"
+    image: redis:alpine
+    env_file:
+      - ./.env
+    networks:
+      - ailyze-deployment_ailyze-nw
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+    
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+networks:
+  ailyze-deployment_ailyze-nw:
+     external: true
+     driver: bridge
+volumes:
+  redis_data:
+    driver: local
+
+
+    

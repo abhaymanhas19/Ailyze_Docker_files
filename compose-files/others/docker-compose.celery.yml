@@ -1,0 +1,132 @@
+version: "3.8"
+services:
+  celery-3:
+    image: celery
+    container_name: celery-3
+    restart: always
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: ailyze-database.postgres.database.azure.com
+      DB_USER: ailyzeadmin
+      DB_PASSWORD: Database@124
+      DB_NAME: production
+      CELERY_BROKER_URL: "amqp://productionuser:productionpassword@haproxy:5672//"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+    command: celery -A AILYZE worker -l info --autoscale=10,4 -Q compareviewpoint -n compare -Ofair
+    depends_on:
+      - redis
+      - rabbitmq1
+      - rabbitmq2
+    networks:
+      ailyze-deployment_ailyze-nw:
+    deploy:
+      resources:
+        limits:
+          memory: 8GiB
+          cpus: '4.0'
+        reservations:
+          memory: 2GiB
+          cpus: '1.0'
+      
+  celery-beat-worker:
+    image: celery
+    container_name: celery_beat_worker
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: ailyze-database.postgres.database.azure.com
+      DB_USER: ailyzeadmin
+      DB_PASSWORD: Database@124
+      DB_NAME: production
+      CELERY_BROKER_URL: "amqp://productionuser:productionpassword@rabbitmq:5672//"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+    env_file:
+      - ./.env
+    command: celery -A AILYZE worker -l info -Q celery
+    depends_on:
+      - redis
+      - rabbitmq
+      - backend-oneclickinsight
+    networks:
+      - ailyze-deployment_ailyze-nw
+    deploy:
+      resources:
+        limits:
+          memory: 8GiB
+          cpus: '4.0'
+        reservations:
+          memory: 2GiB
+          cpus: '1.0'
+
+  celery-beat:
+    image: celery
+    container_name: celery_beat
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: ailyze-database.postgres.database.azure.com
+      DB_USER: ailyzeadmin
+      DB_PASSWORD: Database@124
+      DB_NAME: production
+      CELERY_BROKER_URL: "amqp://productionuser:productionpassword@rabbitmq:5672//"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+    env_file:
+      - ./.env
+    command: celery -A AILYZE beat -l info
+    depends_on:
+      - redis
+      - rabbitmq
+      - backend-oneclickinsight
+    networks:
+      - ailyze-deployment_ailyze-nw
+    deploy:
+      resources:
+        limits:
+          memory: 8GiB
+          cpus: '4.0'
+        reservations:
+          memory: 2GiB
+          cpus: '1.0'
+
+
+  celery-beat-worker:
+    image: celery
+    container_name: celery_supervisor
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: ailyze-database.postgres.database.azure.com
+      DB_USER: ailyzeadmin
+      DB_PASSWORD: Database@124
+      DB_NAME: production
+      CELERY_BROKER_URL: "amqp://productionuser:productionpassword@rabbitmq:5672//"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+      - ../Ailyze_openai_dajngo/AILYZE/AILYZE/supervisord.conf:/etc/supervisor/supervisord.conf
+    env_file:
+      - ./.env
+    command: supervisord -c /etc/supervisor/supervisord.conf
+    depends_on:
+      - redis
+      - rabbitmq
+      - backend-oneclickinsight
+    networks:
+      - ailyze-deployment_ailyze-nw
+
+
+networks:
+  ailyze-deployment_ailyze-nw:
+    external: true
+

@@ -1,0 +1,42 @@
+version: "3.8"
+services:
+  backend-oneclickinsight:
+    container_name: backend-oneclickinsight
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: ailyze-database.postgres.database.azure.com
+      DB_USER: ailyzeadmin
+      DB_PASSWORD: Database@124
+      DB_NAME: production
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "amqp://productionuser:productionpassword@rabbitmq:5672//"
+    networks:
+      - ailyze-deployment_ailyze-nw
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+    env_file:
+      - ./.env
+    command: sh -c "ls AILYZE && gunicorn --bind 0.0.0.0:8000 AILYZE.asgi -w 4 -k uvicorn.workers.UvicornWorker --log-level info --access-logfile ./access.log --error-logfile ./error.log"    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000 || exit 1"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          memory: 6G
+          pids: 60
+
+
+networks:
+   ailyze-deployment_ailyze-nw:
+      external: true

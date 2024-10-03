@@ -1,0 +1,138 @@
+version: '3.8'
+
+# for single rabbimq instance 
+services:
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"  # RabbitMQ main port
+      - "15672:15672"  # RabbitMQ management plugin port
+    environment:
+      - RABBITMQ_DEFAULT_USER=productionuser
+      - RABBITMQ_DEFAULT_PASS=productionpassword
+      - RABBITMQ_GC_MAX=64000
+      - RABBITMQ_GC_THREADS=4
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    env_file:
+      - ./.env
+    networks:
+      - ailyze-deployment_ailyze-nw
+    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  ailyze-deployment_ailyze-nw:
+    external: true
+    driver: bridge
+volumes:
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local
+
+
+
+# for multiple rabbitmq instance with haproxy
+
+version: '3.8'
+
+services: 
+  rabbitmq1:
+    image: "rabbitmq:3-management"
+    hostname: rabbitmq1
+    container_name: rabbitmq1
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=secretcookie
+      - RABBITMQ_DEFAULT_USER=productionuser
+      - RABBITMQ_DEFAULT_PASS=productionpassword
+      - RABBITMQ_ULIMIT_NOFILES=65536
+      - RABBITMQ_NODENAME=rabbit@rabbitmq1
+    volumes:
+      - rabbitmq_data1:/var/lib/rabbitmq
+    networks:
+      - ailyze-nw
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  rabbitmq2:
+    image: "rabbitmq:3-management"
+    hostname: rabbitmq2
+    container_name: rabbitmq2
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=secretcookie
+      - RABBITMQ_DEFAULT_USER=productionuser
+      - RABBITMQ_DEFAULT_PASS=productionpassword
+      - RABBITMQ_ULIMIT_NOFILES=65536
+      - RABBITMQ_NODENAME=rabbit@rabbitmq2
+      - JOIN_CLUSTER_HOST=rabbitmq1
+    volumes:
+      - rabbitmq_data2:/var/lib/rabbitmq
+    networks:
+      - ailyze-nw
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq1
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  haproxy:
+    image: haproxy:latest
+    container_name: haproxy
+    volumes:
+      - /home/azureuser/Ailyze-Deployment/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "5672:5672"
+    depends_on:
+      - rabbitmq1
+      - rabbitmq2
+    networks:
+      - ailyze-nw
+    restart:unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+
+
+volumes:
+  rabbitmq_data1:
+  rabbitmq_data2:
+
+networks:
+  ailyze-nw:
+    driver: bridge

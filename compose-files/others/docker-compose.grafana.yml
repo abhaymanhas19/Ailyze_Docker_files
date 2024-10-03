@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  grafana:
+      image: grafana/grafana
+      container_name: grafana
+      ports:
+        - "3000:3000"
+      environment:
+        - GF_SECURITY_ADMIN_EMAIL=ailyze@outlook.com
+        - GF_SECURITY_ADMIN_PASSWORD=Ailyzeadmin
+      volumes:
+        - grafana-storage:/var/lib/grafana
+      networks:
+        - ailyze-deployment_ailyze-nw
+volumes:
+  grafana-storage:
+
+networks:
+  ailyze-deployment_ailyze-nw:
+    external: true
