@@ -1,0 +1,43 @@
+version: "3.8"
+services:
+  agent:
+    container_name: voiceagent
+    build:
+      context: ../Ailyze_openai_dajngo/AILYZE/
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL} 
+      LIVEKIT_NODE_CPU_CORES: "4"
+    networks:
+      ailyze-nw:
+    volumes:
+      - ../Ailyze_openai_dajngo/AILYZE:/AILYZE
+    env_file:
+      - ./.env
+    command: sh -c "python voiceinterview/agent.py start"
+    depends_on:
+    - livekit-server
+    
+
+
+  livekit-server:
+    container_name: livekit-server
+    image: livekit/livekit-server
+    ports:
+      - "7880:7880" 
+    env_file:
+      - ./.env
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    networks:
+      ailyze-nw:
+
+
+networks:
+  ailyze-nw:
+    driver: bridge
+ 
+  
+
